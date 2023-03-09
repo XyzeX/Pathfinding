@@ -2,10 +2,13 @@ class Grid {
   private boolean clicked = false, started = false;
   private int state = 0;
   private int x, y, w, h;
+  private int animation;
   private final int[] DIM;
   private ArrayList<Wall> walls = new ArrayList<Wall>();
-  private PImage startImg, finishImg;
+  private PImage startImg, finishImg, NPCImage;
   private PVector startPos = new PVector(-2000, -2000), finishPos = new PVector(-2000, -2000);
+  private Pathfinder pathfinder;
+  private int startFrame, animationFrame = -1;
   
   Grid (int x, int y, int w, int h, int[] DIM) {
     this.x = x;
@@ -34,10 +37,49 @@ class Grid {
       line(_x, y, _x, y + h);
     }
     
+    if (started) {
+      if (pathfinder.isDone()) {
+        started = false;
+      } else if ((frameCount - startFrame) % 10 == 0) {
+        pathfinder.next();
+      }
+      for (Square square : pathfinder.getDiscoveredSquares()) {
+        square.draw(w, h, DIM, #00FF00);
+      }
+      fill(255);
+    } else if (pathfinder != null) {
+      if (pathfinder.isDone()) {
+        for (Square square : pathfinder.getDiscoveredSquares()) {
+          square.draw(w, h, DIM, #FF0000);
+        }
+        
+        if ((frameCount - animationFrame) % 20 == 0) {
+          animation--;
+        }
+        
+        ArrayList<Square> shortestPath = pathfinder.getShortestPath();
+        
+        if (animation < 0) {
+          animation = shortestPath.size() + 1;
+        }
+        
+        for (int i = shortestPath.size() - 1; i >= 0; i--) {
+          Square square = shortestPath.get(i);
+          square.draw(w, h, DIM, #00FF00);
+          if (i == animation) {
+            image(NPCImage, square.x, square.y);
+          }
+        }
+        fill(255);
+      }
+    }
+    
     strokeWeight(4);
+    stroke(0, 0, 255);
     for (Wall wall : walls) {
       wall.draw();
     }
+    stroke(0);
     
     if (started) {
       return;
@@ -56,10 +98,10 @@ class Grid {
   }
   
   void start() {
+    startFrame = frameCount;
     started = true;
     state = 0;
-    Pathfinder pathfinder = new Pathfinder(this);
-    pathfinder.start();
+    pathfinder = new Pathfinder(this);
   }
   
   void clicked() {
@@ -232,10 +274,25 @@ class Grid {
     startImg.resize(w / DIM[0] - 1, h / DIM[1] - 1);
   }
   
+  void setNPC(PImage img) {
+    NPCImage = img;
+    NPCImage.resize(w / DIM[0] - 50, h / DIM[1] - 1);
+  }
+  
   boolean isReady() {
     if (startPos.x >= x && startPos.y >= y && finishPos.x >= x && finishPos.y >= y) {
       return !(startPos.x == finishPos.x && startPos.y == finishPos.y);
     }
     return false;
+  }
+  
+  void resetPath() {
+    started = false;
+    pathfinder.reset();
+  }
+  
+  void setAnimationFrame() {
+    animationFrame = frameCount;
+    animation = -1;
   }
 }

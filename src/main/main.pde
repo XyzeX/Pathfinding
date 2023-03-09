@@ -3,19 +3,23 @@ Grid grid;
 boolean pathfinding = false;
 
 PImage[] img = new PImage[4];
+PImage NPC;
 
 void setup() {
   fullScreen();
   textSize(32);
+  textAlign(CENTER, CENTER);
   img[0] = loadImage("data/line.png");
   img[1] = loadImage("data/eraser.png");
   img[2] = loadImage("data/start.png");
   img[3] = loadImage("data/end.png");
+  NPC = loadImage("data/NPC.png");
   
   int[] DIM = {10, 10};
   grid = new Grid(width / 10, height / 10, width - width / 5, height - height / 5, DIM);
   grid.setStartImg(img[2]);
   grid.setFinishImg(img[3]);
+  grid.setNPC(NPC);
   for (int i = 0; i < buttons.length; i++) {
     buttons[i] = new Button(width / 20, height / 10 + width / 15 * i, width / 20, width / 20, img[i]);
   }
@@ -49,7 +53,16 @@ void keyPressed() {
   if (key == ' ') {
     if (grid.isReady()) {
       pathfinding = !pathfinding;
-      grid.start();
+      if (pathfinding) {
+        grid.start();
+      } else {
+        grid.resetPath();
+      }
+    }
+  }
+  for (int i = 1; i < buttons.length + 1; i++) {
+    if (int(str(key)) == i) {
+      grid.setState(i);
     }
   }
 }
