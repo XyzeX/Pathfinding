@@ -1,8 +1,11 @@
 class Grid {
-  private boolean saveWall = false;
+  private boolean clicked = false, started = false;
+  private int state = 0;
   private int x, y, w, h;
   private final int[] DIM;
-  private ArrayList<PVector> walls = new ArrayList<PVector>();
+  private ArrayList<Wall> walls = new ArrayList<Wall>();
+  private PImage startImg, finishImg;
+  private PVector startPos = new PVector(-2000, -2000), finishPos = new PVector(-2000, -2000);
   
   Grid (int x, int y, int w, int h, int[] DIM) {
     this.x = x;
@@ -16,35 +19,166 @@ class Grid {
     stroke(0);
     strokeWeight(16);
     rect(x - 8, y - 8, w + 16, h + 16);
+    text(state, width / 2, 50);
     
+    image(startImg, startPos.x, startPos.y);
+    image(finishImg, finishPos.x, finishPos.y);
+    
+    strokeWeight(1);
+    for (int i = 0; i < DIM[0] + 1; i++) {
+      final float _y = y + i * h / DIM[1];
+      line(x, _y, x + w, _y);
+    }
+    for (int i = 0; i < DIM[1] + 1; i++) {
+      final float _x = x + i * w / DIM[0];
+      line(_x, y, _x, y + h);
+    }
+    
+    strokeWeight(4);
+    for (Wall wall : walls) {
+      wall.draw();
+    }
+    
+    if (started) {
+      return;
+    }
+    
+    if (state == 1) {
+      makeLine();
+    } else if (state == 2) {
+      removeLine();
+    } else if (state == 3) {
+      makeStart();
+    } else if (state == 4) {
+      makeFinish();
+    }
+    clicked = false;
+  }
+  
+  void start() {
+    started = true;
+    state = 0;
+    Pathfinder pathfinder = new Pathfinder(this);
+    pathfinder.start();
+  }
+  
+  void clicked() {
+    clicked = true;
+  }
+  
+  void makeLine() {
+    float[] line = findClosestLine();
+    final float lineX = line[0];
+    final float lineY = line[1];
+    final float _w = line[2];
+    final float _h = line[3];
+    
+    line(lineX, lineY, lineX + _w, lineY + _h);
+    
+    if (clicked) {
+      final Wall wall = new Wall(lineX, lineY, _w, _h);
+      for (int i = 0; i < walls.size(); i++) {
+        if (walls.get(i).compare(wall.x, wall.y, wall.w, wall.h)) {
+          break;
+        } else if (i == walls.size() - 1) {
+          walls.add(wall);
+        }
+      }
+      if (walls.size() == 0) {
+        walls.add(wall);
+      }
+    }
+  }
+  
+  void removeLine() {
+    float[] line = findClosestLine();
+    final float lineX = line[0];
+    final float lineY = line[1];
+    final float _w = line[2];
+    final float _h = line[3];
+    
+    for (int i = 0; i < walls.size(); i++) {
+      if (walls.get(i).compare(lineX, lineY, _w, _h)) {
+        if (clicked) {
+          walls.remove(i);
+          return;
+        }
+        stroke(255, 0, 0);
+        line(lineX, lineY, lineX + _w, lineY + _h);
+        stroke(0);
+      }
+    }
+  }
+  
+  void makeStart() {
+    final float[] corner = findClosestCorner();
+    final float cornerX = corner[0];
+    final float cornerY = corner[1];
+    
+    image(startImg, cornerX + 1, cornerY + 1);
+    if (clicked) {
+      startPos.x = cornerX + 1;
+      startPos.y = cornerY + 1;
+    }
+  }
+  
+  void makeFinish() {
+    final float[] corner = findClosestCorner();
+    final float cornerX = corner[0];
+    final float cornerY = corner[1];
+    
+    image(finishImg, cornerX + 1, cornerY + 1);
+    if (clicked) {
+      finishPos.x = cornerX + 1;
+      finishPos.y = cornerY + 1;
+    }
+  }
+  
+  float[] findClosestCorner() {
+    float cornerY = -y;
+    float cornerX = -x;
+    
+    for (int i = 0; i < DIM[0] + 1; i++) {
+      final float _y = y + i * h / DIM[1];
+      
+      if (cornerY == -y && mouseX >= x && mouseX <= x + w && mouseY > y && mouseY < _y) {
+        cornerY = _y - h / DIM[1];
+      }
+    }
+    for (int i = 0; i < DIM[1] + 1; i++) {
+      final float _x = x + i * w / DIM[0];
+      
+      if (cornerX == -x && cornerY != -y && mouseX > x && mouseX < _x) {
+        cornerX = _x - w / DIM[0];
+      }
+    }
+    float[] result = new float[2];
+    result[0] = cornerX;
+    result[1] = cornerY;
+    return result;
+  }
+  
+  float[] findClosestLine() {
     float lineY = -y;
     float lineX = -x;
     float yToWall = 0;
     float xToWall = 0;
     
-    strokeWeight(1);
-    for (int i = 0; i < DIM[0]; i++) {
-      final float y_ = y + i * h / DIM[1];
-      line(x, y_, x + w, y_);
+    for (int i = 0; i < DIM[0] + 1; i++) {
+      final float _y = y + i * h / DIM[1];
       
-      if (lineY == -y && mouseX >= x && mouseX <= x + w && mouseY > y && mouseY < y_ + (h / DIM[1]) / 2) {
-        lineY = y_;
-        yToWall = mouseY - y_;
+      if (lineY == -y && mouseX >= x && mouseX <= x + w && mouseY > y && mouseY < _y + (h / DIM[1]) / 2) {
+        lineY = _y;
+        yToWall = mouseY - _y;
       }
     }
-    for (int i = 0; i < DIM[1]; i++) {
-      final float x_ = x + i * w / DIM[0];
-      line(x_, y, x_, y + h);
+    for (int i = 0; i < DIM[1] + 1; i++) {
+      final float _x = x + i * w / DIM[0];
       
-      if (lineX == -x && lineY != -y && mouseX > x && mouseX < x_) {
-        lineX = x_ - w / DIM[0];
-        xToWall = mouseX - (x_ - w / DIM[0]);
+      if (lineX == -x && lineY != -y && mouseX > x && mouseX < _x) {
+        lineX = _x - w / DIM[0];
+        xToWall = mouseX - (_x - w / DIM[0]);
       }
-    }
-    
-    strokeWeight(4);
-    for (PVector wall : walls) {
-      line(wall.x, wall.y, wall.x + w / DIM[0], wall.y);
     }
     
     if (yToWall < 0) {
@@ -57,31 +191,51 @@ class Grid {
       xToWall -= (w / DIM[0]) / 2;
       xToWall = (w / DIM[0]) / 2 - xToWall;
       if (xToWall <= yToWall) {
-        text("LINE MOVED RIGHT", 10, 200);
         lineX += w / DIM[0];
-        if (yToWall > h / DIM[1]) {
+        if (mouseY - lineY < 0) {
           lineY -= h / DIM[1];
         }
       }
     }
     
+    float _w = 0;
+    float _h = 0;
     if (yToWall < xToWall) {
-      line(lineX, lineY, lineX + w / DIM[0], lineY);
+      _w = w / DIM[0];
     } else {
-      line(lineX, lineY, lineX, lineY + h / DIM[1]);
+      _h = h / DIM[1];
     }
     
-    if (saveWall) {
-      saveWall = false;
-      final PVector wall = new PVector(lineX, lineY);
-      walls.add(wall);
-    }
-    
-    text(xToWall, 10, 10);
-    text(yToWall, 10, 100);
+    final float[] result = new float[4];
+    result[0] = lineX;
+    result[1] = lineY;
+    result[2] = _w;
+    result[3] = _h;
+    return result;
   }
   
-  void drawWall() {
-    saveWall = true;
+  void setState(int newState) {
+    state = newState;
+  }
+  
+  int getState() {
+    return state;
+  }
+  
+  void setFinishImg(PImage img) {
+    finishImg = img.copy();
+    finishImg.resize(w / DIM[0] - 1, h / DIM[1] - 1);
+  }
+  
+  void setStartImg(PImage img) {
+    startImg = img.copy();
+    startImg.resize(w / DIM[0] - 1, h / DIM[1] - 1);
+  }
+  
+  boolean isReady() {
+    if (startPos.x >= x && startPos.y >= y && finishPos.x >= x && finishPos.y >= y) {
+      return !(startPos.x == finishPos.x && startPos.y == finishPos.y);
+    }
+    return false;
   }
 }
